@@ -1,0 +1,70 @@
+language: python
+cache: pip
+dist: xenial
+python:
+  - "3.7"
+services:
+  - docker
+  - postgresql
+addons:
+  postgresql: "9.6"
+before_script:
+  - sleep 10
+  - psql -c 'create database db;' -U postgres
+install:
+  - cat requirements/base.txt | grep "^Django==\|^psycopg2" | xargs pip install
+  - pip install -r requirements/ci.txt
+script:
+  - flake8
+  - bandit -r . -ll
+  - pytest --cache-clear
+  - docker build -t $DOCKER_REPO .
+env:
+  global:
+    ALLOWED_HOSTS: "*"
+    CORS_ORIGIN_WHITELIST: "*"
+    DATABASE_ENGINE: "postgresql"
+    DATABASE_NAME: "db"
+    DATABASE_USER: "root"
+    DATABASE_PASSWORD: "root"
+    DATABASE_HOST: "localhost"
+    DATABASE_PORT: "5432"
+deploy:
+  provider: script
+  script: echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin && docker push "$DOCKER_REPO:$TRAVIS_TAG"
+  on:
+    branch: master
+    tags: true
+
+
+  build-docker-image-tag:
+    image: plugins/docker
+    insecure: true
+    registry: hub.docker.com
+    repo: hub.docker.com/buildly/kpi_service
+    file: Dockerfile
+    auto_tag: true
+    secrets: [DOCKER_USERNAME, DOCKER_PASSWORD]
+    when:
+      event: [tag]
+      status: [success]
+
+  prebuild-docker-static-image:
+    image: python:3.6-alpine3.7
+    commands:
+      - bash scripts/run-collectstatic.sh
+    when:
+      event: [tag]
+      status: [success]
+
+  build-docker-static-image-tag:
+    image: plugins/docker
+    insecure: true
+    registry: hub.docker.com
+    repo: hub.docker.com/buildly/project_service_static
+    dockerfile: Dockerfile.nginx
+    auto_tag: true
+    secrets: [DOCKER_USERNAME, DOCKER_PASSWORD]
+    when:
+      event: [tag]
+      status: [success]
