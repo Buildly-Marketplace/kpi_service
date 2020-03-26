@@ -10,6 +10,6 @@ The board for this project is comprised of key commiters, founding members and o
 
 # Board Members
  * Buildly PM and/or Lead Developer 
- * Humanitec Board Member 1
+ * Partner Member 1
  * Community Member
 
